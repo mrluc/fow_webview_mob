@@ -10,6 +10,10 @@ import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import java.io.File
+import java.io.ByteArrayInputStream
+import java.util.concurrent.atomic.AtomicBoolean
+import android.webkit.WebResourceResponse
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -82,6 +86,9 @@ fun mobWebView(props: Map<String, Any?>, send: (String, Map<String, Any>) -> Uni
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun webViewContent(props: Map<String, Any?>, send: (String, Map<String, Any>) -> Unit) {
+    val bundle = remember { fields(props["bundle"]) }
+    val resources = remember { fields(bundle["files"]) }
+    val startupPending = remember { AtomicBoolean(true) }
     val currentSend = rememberUpdatedState(send)
     val currentAllow = rememberUpdatedState(strings(props["allow"]))
     val active = props["active"] as? Boolean ?: true
@@ -140,6 +147,22 @@ private fun webViewContent(props: Map<String, Any?>, send: (String, Map<String, 
                     WebViewCompat.addDocumentStartJavaScript(this, bridgeScript, setOf("*"))
                 }
                 webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                        if (request.method != "GET") return null
+                        val target = request.url.buildUpon().clearQuery().fragment(null).build().toString()
+                        val initial = request.isForMainFrame && request.method == "GET" &&
+                            request.url.toString() == bundle["url"] && startupPending.compareAndSet(true, false)
+                        val resource = fields(resources[target])
+                        val file = if (initial) bundle["startup"] as? String else resource["file"] as? String
+                        if (file == null) return null
+                        return try {
+                            WebResourceResponse(if (initial) "text/html" else resource["mime"] as? String ?: "application/octet-stream",
+                                null, 200, "OK", mapOf("Cache-Control" to "no-store", "X-Content-Type-Options" to "nosniff"), File(file).inputStream())
+                        } catch (error: Exception) {
+                            emit("error", mapOf("url" to target, "message" to "Bundled resource could not be read"))
+                            WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", emptyMap(), ByteArrayInputStream(byteArrayOf()))
+                        }
+                    }
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                         val target = request.url.toString()
                         if (currentAllow.value.isEmpty() || currentAllow.value.any { target.startsWith(it) }) return false

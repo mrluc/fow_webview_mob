@@ -24,6 +24,9 @@ struct MobWebViewNative: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
+        if let bundle = props["bundle"] as? [String: Any] {
+            config.setURLSchemeHandler(BundleAssets(bundle: bundle), forURLScheme: "fog-of-war-assets")
+        }
         config.userContentController.add(context.coordinator, name: "mobWebView")
         let shim = """
         (()=>{const handlers=[];window.mob={
@@ -54,6 +57,7 @@ struct MobWebViewNative: UIViewRepresentable {
         var props: [String: Any]
         var send: MobNativeSend
         var requestedURL: String?
+        var startupLoaded = false
         var lastCommand: Int64?
         var active: Bool?
         var observations: [NSKeyValueObservation] = []
@@ -76,7 +80,19 @@ struct MobWebViewNative: UIViewRepresentable {
             view.allowsBackForwardNavigationGestures = props["handle_back"] as? Bool ?? true
             if let text = props["url"] as? String, text != requestedURL, let url = URL(string: text) {
                 requestedURL = text
-                if allowed(url) { view.load(URLRequest(url: url)) } else { send("blocked", ["url": text]) }
+                if allowed(url) {
+                    if !startupLoaded, let bundle = props["bundle"] as? [String: Any],
+                       bundle["url"] as? String == text, let file = bundle["startup"] as? String {
+                        startupLoaded = true
+                        do {
+                            let bytes = try Data(contentsOf: URL(fileURLWithPath: file))
+                            if #available(iOS 15.0, *) {
+                                let response = URLResponse(url: url, mimeType: "text/html", expectedContentLength: bytes.count, textEncodingName: "utf-8")
+                                view.loadSimulatedRequest(URLRequest(url: url), response: response, responseData: bytes)
+                            } else { send("error", ["url": text, "message": "Bundled startup requires iOS 15 or newer"]) }
+                        } catch { send("error", ["url": text, "message": "Bundled startup could not be read"]) }
+                    } else { view.load(URLRequest(url: url)) }
+                } else { send("blocked", ["url": text]) }
             }
             if let command = props["command"] as? [String: Any], let number = command["id"] as? NSNumber {
                 let id = number.int64Value
@@ -135,4 +151,27 @@ struct MobWebViewNative: UIViewRepresentable {
             send("error", ["url": view.url?.absoluteString ?? "", "code": (error as NSError).code, "message": error.localizedDescription])
         }
     }
+}
+
+// A closed allowlist; incoming URL paths are never joined to the filesystem.
+private final class BundleAssets: NSObject, WKURLSchemeHandler {
+    private let files: [String: [String: Any]]
+    init(bundle: [String: Any]) { files = bundle["files"] as? [String: [String: Any]] ?? [:] }
+    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        guard let url = task.request.url else { return }
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.query = nil; components?.fragment = nil
+        guard task.request.httpMethod == "GET", let key = components?.url?.absoluteString,
+              let entry = files[key], let file = entry["file"] as? String,
+              let data = try? Data(contentsOf: URL(fileURLWithPath: file)) else {
+            task.didFailWithError(URLError(.fileDoesNotExist)); return
+        }
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: [
+            "Content-Type": entry["mime"] as? String ?? "application/octet-stream",
+            "Content-Length": String(data.count), "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"
+        ])!
+        task.didReceive(response); task.didReceive(data); task.didFinish()
+    }
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
 }

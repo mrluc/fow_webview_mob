@@ -13,7 +13,7 @@
     %{
       tag: "MobWebView",
       atom: :mob_webview,
-      props: [:url, :allow, :active, :handle_back, :command, :width, :height],
+      props: [:url, :bundle, :allow, :active, :handle_back, :command, :width, :height],
       ios: %{view_module: "MobWebView_View", swift_struct: "MobWebViewNative"},
       android: %{composable: "MobWebView_View", factory: "dev.fogofwar.webview.mobWebView"}
     }

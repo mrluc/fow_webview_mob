@@ -3,6 +3,7 @@ defmodule MobWebView.View do
 
   @props [
     :url,
+    :bundle,
     :allow,
     :active,
     :handle_back,

@@ -83,3 +83,11 @@ MOB_WEBVIEW_ANDROID_DEVICE=emulator-5554 \
 ```
 
 The plain script uses existing Mob test/connection APIs, loads a temporary QA screen into the device BEAM, and restores the original screen afterward. It creates no Mix commands. It resolves the actual launch activity through Android because the host's application id differs from its Kotlin namespace, and waits for actual development-node registration before attaching. The host must retain Mob's `Mob.Dist.ensure_started` development hook. The current fixture is ARM64-only; a separate 32-bit native linker failure is not resolved by this WebView test.
+
+## Bundled startup prototype
+
+Pass `bundle: MobWebView.Bundle.load!(root)` and `url: bundle["url"]` when mounting the view. FoW's `mix fow.bundle.prepare` produces the directory, including its `native.json` allowlist. Package it in the host application's `priv` directory and resolve that directory on the device. Keep the bundle immutable for the mounted component's lifetime. MobWebView has no dependency on FoW.
+
+Android intercepts the first main-document request and declared asset URLs, reading only the exact files in the allowlist. Subsequent document loads use the network, so LiveView can refresh expired startup tokens. iOS registers `fog-of-war-assets` before creating the view and uses WebKit's simulated-response API for the initial document at its real website URL. It requires iOS 15 or newer. That Apple path has SDK compile checks only; custom-scheme fetch, canvas and storage behavior still require an iOS runtime test.
+
+The Android Frontier test verifies fresh WebView storage, an unreachable website, gzip-to-IndexedDB import, cached navigation, image decoding and canvas access, followed by automatic connection recovery at the selected route and another live navigation. The existing bridge/navigation smoke test is separate. A component-owned asset allowlist does not cache assets discovered later online, and does not provide guaranteed fallback if a network document reload fails during recovery.

@@ -1,6 +1,7 @@
 defmodule MobWebView do
   @moduledoc """
-  Independent native WebView. No asset caching is implemented yet.
+  Independent native WebView. Pass `bundle: MobWebView.Bundle.load!(root)` to load
+  packaged startup HTML and assets. The bundle must remain unchanged while mounted.
 
   Commands target a view owned by the calling screen process. Events arrive as
   `{:mob_webview, id, event, payload}` in that screen's `handle_info/2`.
