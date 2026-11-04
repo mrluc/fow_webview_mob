@@ -23,6 +23,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -73,6 +74,14 @@ private class JsBridge(private val emit: (String, Map<String, Any>) -> Unit) {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun mobWebView(props: Map<String, Any?>, send: (String, Map<String, Any>) -> Unit) {
+    // A screen-local id may repeat on the next screen. Mob's native handle
+    // includes its generation, so it owns this WebView's remembered state.
+    key(props["component_handle"]) { webViewContent(props, send) }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun webViewContent(props: Map<String, Any?>, send: (String, Map<String, Any>) -> Unit) {
     val currentSend = rememberUpdatedState(send)
     val currentAllow = rememberUpdatedState(strings(props["allow"]))
     val active = props["active"] as? Boolean ?: true

@@ -7,6 +7,7 @@ defmodule MobWebView.MixProject do
       version: "0.1.0",
       elixir: "~> 1.19",
       erlc_paths: ["src"],
+      test_ignore_filters: [~r{/native/}],
       deps: [{:mob, "~> 0.9.27"}, {:mob_dev, "~> 0.7.31", only: :dev, runtime: false}],
       description: "A standalone Mob native WebView component",
       package: [licenses: ["MIT"], files: ~w(lib src priv LICENSE LICENSES README.md mix.exs)]

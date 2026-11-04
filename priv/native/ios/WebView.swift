@@ -11,7 +11,7 @@ import UIKit
 public func mobWebViewRegister() {
     let register = {
         MobNativeViewRegistry.shared.register("MobWebView_View") { props, send in
-            AnyView(MobWebViewNative(props: props, send: send))
+            AnyView(MobWebViewNative(props: props, send: send).id(props["component_handle"] as? Int ?? -1))
         }
     }
     if Thread.isMainThread { register() } else { DispatchQueue.main.sync(execute: register) }

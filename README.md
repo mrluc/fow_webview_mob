@@ -4,7 +4,9 @@ An independent native WebView component for Mob, packaged separately from Fog of
 
 ## Status
 
-The Elixir component and consumer screen compile. Host tests cover command routing and ordered acknowledgment. The iOS source type-checks against the iOS SDK with a shim matching Mob's public native registry; the Android source compiles against Android SDK 35, Compose, and AndroidX WebKit. These checks do not establish device behavior or full parity with Mob's built-in WebView. A native host build and device/simulator smoke test remain required.
+The Android ARM64 emulator run passes real native checks: initial page loading, JavaScript evaluation, JS → Elixir → JS messaging, URL updates, Back/Forward/reload, blocked navigation, original-screen restoration and release of the QA component registration. Screen-local ids can repeat; native view state is keyed by Mob's generation-aware component handle to prevent accidental reuse across owners.
+
+The iOS source type-checks against the iOS SDK with a shim matching Mob's public native registry. iOS device/simulator runtime behavior is **not yet verified**. Host tests cover command routing and ordered acknowledgment. Neither platform implements asset caching yet.
 
 ## Use in a Mob app
 
@@ -69,3 +71,15 @@ bash test/native/typecheck-android.sh --help  # Cached Kotlin/Compose and SDK pr
 ## License and provenance
 
 MIT. `LICENSES/Mob-MIT.txt` retains Mob 0.9.27's complete MIT notice, Copyright (c) 2026 Kevin Smith. The iOS design adapts Mob's WebView; the Android wrapper is independently written against public Android APIs. Retain these notices in distributed source packages and app license materials.
+
+
+## Android device smoke test
+
+After deploying the example host with `mix mob.deploy --native --android`, run from `fow/examples/wrappers/mob`:
+
+```sh
+MOB_WEBVIEW_ANDROID_DEVICE=emulator-5554 \
+  mix run --no-start ../../../../mob_webview/test/native/android-smoke.exs
+```
+
+The plain script uses existing Mob test/connection APIs, loads a temporary QA screen into the device BEAM, and restores the original screen afterward. It creates no Mix commands. It resolves the actual launch activity through Android because the host's application id differs from its Kotlin namespace, and waits for actual development-node registration before attaching. The host must retain Mob's `Mob.Dist.ensure_started` development hook. The current fixture is ARM64-only; a separate 32-bit native linker failure is not resolved by this WebView test.
