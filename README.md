@@ -61,9 +61,10 @@ Mob's plugin manifest declares the Swift/Kotlin source files and component facto
 mix deps.get
 mix test
 bash test/native/typecheck-ios.sh  # macOS with an iOS SDK
+bash test/native/typecheck-android.sh --help  # Cached Kotlin/Compose and SDK prerequisites
 ```
 
-The Android source has also been checked with the installed Kotlin/Compose compiler and Android SDK; no APK or emulator was built in this first pass.
+`test/native/typecheck-android.sh` repeats the standalone Kotlin/Compose compiler check using the installed SDK and cached compiler/AndroidX jars. It supports an explicit external WebKit AAR path and does not download dependencies or build an APK. No mobile app or emulator was built in this first pass.
 
 ## License and provenance
 
